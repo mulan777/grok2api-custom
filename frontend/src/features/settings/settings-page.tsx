@@ -276,6 +276,29 @@ export function SettingsPage() {
                   );
                 }} />
               </SettingsField>
+              <SettingsField controlId="routing-safety-rejection-message" label={t("settings.routing.safetyRejectionMessage")} description={t("settings.routing.safetyRejectionMessageHelp")}>
+                <Controller control={form.control} name="routing.safetyRejectionMessage" render={({ field }) => (
+                  <Textarea
+                    id="routing-safety-rejection-message"
+                    ref={field.ref}
+                    name={field.name}
+                    rows={2}
+                    maxLength={500}
+                    value={field.value}
+                    placeholder={t("settings.routing.safetyRejectionMessagePlaceholder")}
+                    onBlur={field.onBlur}
+                    onChange={(event) => field.onChange(event.currentTarget.value)}
+                  />
+                )} />
+              </SettingsField>
+              <SettingsField controlId="routing-safety-rejection-replace" label={t("settings.routing.safetyRejectionReplace")} description={t("settings.routing.safetyRejectionReplaceHelp")}>
+                <Controller control={form.control} name="routing.safetyRejectionReplace" render={({ field }) => (
+                  <div className="flex h-9 items-center gap-3">
+                    <Switch id="routing-safety-rejection-replace" checked={field.value} onCheckedChange={field.onChange} />
+                    <span className="text-xs text-muted-foreground">{field.value ? t("settings.routing.safetyRejectionModeReplace") : t("settings.routing.safetyRejectionModeAppend")}</span>
+                  </div>
+                )} />
+              </SettingsField>
               <SettingsField controlId="routing-video-max-attempts" label={t("settings.routing.videoMaxAttempts")} description={t("settings.routing.videoMaxAttemptsHelp")} error={form.formState.errors.routing?.videoMaxAttempts?.message}>
                 <Controller control={form.control} name="routing.videoMaxAttempts" render={({ field }) => {
                   const unlimited = field.value === UNLIMITED_ROUTING_ATTEMPTS;

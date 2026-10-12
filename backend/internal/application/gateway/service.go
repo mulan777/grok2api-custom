@@ -228,6 +228,15 @@ type Service struct {
 	modelSyncing                map[uint64]struct{}
 	markBuildChatDeniedAsReauth atomic.Bool
 	qualityRetry                atomic.Pointer[QualityRetryRuntime]
+	// safetyRejectionPolicy 二开：内容审查拒答透传给客户端的文案与模式（热更新）。
+	safetyRejectionPolicy atomic.Pointer[safetyRejectionRuntimePolicy]
+}
+
+// safetyRejectionRuntimePolicy 二开：拒答透传策略运行时态。
+// Message 为空=内置默认文案；Replace=true 仅返回文案，false=文案+真实上游报错。
+type safetyRejectionRuntimePolicy struct {
+	Message  string
+	Replace  bool
 }
 
 type teamModelRateLimit struct {
@@ -269,7 +278,21 @@ func NewService(models routeResolver, audits auditRecorder, accounts *accountapp
 		modelSyncing: make(map[uint64]struct{}),
 	}
 	service.UpdateMaxAttempts(maxAttempts)
+	service.UpdateSafetyRejectionPolicy("", false)
 	return service
+}
+
+// UpdateSafetyRejectionPolicy 二开：热更新内容审查拒答透传文案与模式。
+func (s *Service) UpdateSafetyRejectionPolicy(message string, replace bool) {
+	s.safetyRejectionPolicy.Store(&safetyRejectionRuntimePolicy{Message: message, Replace: replace})
+}
+
+// SafetyRejectionPolicy 二开：读取当前拒答透传策略。
+func (s *Service) SafetyRejectionPolicy() (string, bool) {
+	if policy := s.safetyRejectionPolicy.Load(); policy != nil {
+		return policy.Message, policy.Replace
+	}
+	return "", false
 }
 
 // UpdateBuildForbiddenReauthPolicy atomically replaces the Build account invalidation policy.

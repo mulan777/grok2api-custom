@@ -2357,11 +2357,25 @@ Object.assign(resources["zh-CN"].translation.settings.routing as unknown as Reco
   maxAttemptsHelp: "单次请求的最大路由尝试轮次；初次选择计 1 次，切号或出口重试各增加 1 次。范围为 1–65535。",
   markBuildChatDeniedAsReauth: "Build Chat 权限拒绝标记重授权",
   markBuildChatDeniedAsReauthHelp: "开启后，Build Chat 请求遇到权限拒绝时将账号标记为需要重新授权并移出号池。",
+  safetyRejectionMessage: "内容审查拒答提示文案",
+  safetyRejectionMessageHelp: "上游内容审查拒绝请求时返回给客户端的提示文案；留空使用内置默认文案。",
+  safetyRejectionMessagePlaceholder: "你的请求被上游内容审查拒绝，请修改提示词后重试",
+  safetyRejectionReplace: "仅返回自定义文案",
+  safetyRejectionReplaceHelp: "开启=只返回上面的文案；关闭=文案后追加真实上游报错，方便定位。",
+  safetyRejectionModeReplace: "当前：覆盖模式（只显示自定义文案）",
+  safetyRejectionModeAppend: "当前：追加模式（文案 + 真实上游报错）",
 });
 Object.assign(resources.en.translation.settings.routing as unknown as Record<string, string>, {
   maxAttemptsHelp: "Maximum routing-attempt rounds per client request. Initial selection counts as one; account failover or egress retry adds another. Range: 1–65535.",
   markBuildChatDeniedAsReauth: "Mark Build Chat denied as reauth",
   markBuildChatDeniedAsReauthHelp: "Mark accounts that receive a Build Chat permission denial for reauthorization and remove them from routing.",
+  safetyRejectionMessage: "Safety rejection message",
+  safetyRejectionMessageHelp: "Message returned to clients when the upstream content-safety check rejects a request. Leave empty for the built-in default.",
+  safetyRejectionMessagePlaceholder: "Your request was rejected by the upstream content policy. Please revise the prompt.",
+  safetyRejectionReplace: "Replace with custom message",
+  safetyRejectionReplaceHelp: "On = return only the custom message; Off = append the real upstream error for debugging.",
+  safetyRejectionModeReplace: "Mode: replace (custom message only)",
+  safetyRejectionModeAppend: "Mode: append (message + real upstream error)",
 });
 Object.assign(resources["zh-CN"].translation.settings.web as unknown as Record<string, string>, {
   clearanceModeHelp: "手动维护 Clearance，使用 FlareSolverr 定期主动刷新，或仅在上游明确拒绝后按需重新求解。",

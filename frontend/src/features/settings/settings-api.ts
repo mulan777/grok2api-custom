@@ -21,6 +21,8 @@ export type SettingsConfigDTO = {
   frontend: { publicApiBaseURL: string };
   routing: {
     stickyTTL: string; cooldownBase: string; cooldownMax: string; capacityWait: string; maxAttempts: number; videoMaxAttempts: number; preferFreeBuild: boolean; markBuildChatDeniedAsReauth: boolean;
+    safetyRejectionMessage?: string;
+    safetyRejectionReplace?: boolean;
     accountIsolatedConnections: boolean;
     segmentedSelector: { enabled: boolean; minCandidates: number; windowSize: number };
   };
@@ -129,6 +131,8 @@ const settingsConfigValidator = hasShape({
   frontend: hasShape({ publicApiBaseURL: isString }),
   routing: hasShape({
     stickyTTL: isString, cooldownBase: isString, cooldownMax: isString, capacityWait: isString, maxAttempts: isNumber, videoMaxAttempts: isNumber, preferFreeBuild: isBoolean, markBuildChatDeniedAsReauth: isBoolean,
+    safetyRejectionMessage: isOptional(isString),
+    safetyRejectionReplace: isOptional(isBoolean),
     accountIsolatedConnections: isOptional(isBoolean),
     segmentedSelector: isOptional(hasShape({ enabled: isBoolean, minCandidates: isNumber, windowSize: isNumber })),
   }),
@@ -180,6 +184,8 @@ function withSettingsDefaults(snapshot: SettingsSnapshotDTO): SettingsSnapshotDT
       routing: {
         ...snapshot.config.routing,
         markBuildChatDeniedAsReauth: snapshot.config.routing.markBuildChatDeniedAsReauth ?? false,
+        safetyRejectionMessage: snapshot.config.routing.safetyRejectionMessage ?? "",
+        safetyRejectionReplace: snapshot.config.routing.safetyRejectionReplace ?? false,
         accountIsolatedConnections: snapshot.config.routing.accountIsolatedConnections ?? false,
         segmentedSelector: {
           enabled: segmentedSelector.enabled ?? true,

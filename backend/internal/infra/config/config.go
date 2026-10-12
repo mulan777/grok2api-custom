@@ -223,6 +223,10 @@ type RoutingConfig struct {
 	PreferFreeBuild  bool     `yaml:"preferFreeBuild"`
 	// MarkBuildChatDeniedAsReauth 为 true 时，Build chat 权限拒绝标 reauthRequired，默认 false。
 	MarkBuildChatDeniedAsReauth bool     `yaml:"markBuildChatDeniedAsReauth"`
+	// SafetyRejectionMessage 二开：内容审查拒答提示文案（空=内置默认）。
+	SafetyRejectionMessage      string   `yaml:"safetyRejectionMessage"`
+	// SafetyRejectionReplace 二开：true=文案整体覆盖；false=文案+真实上游报错。
+	SafetyRejectionReplace      bool     `yaml:"safetyRejectionReplace"`
 	AccountIsolatedConnections  bool     `yaml:"accountIsolatedConnections"`
 	SegmentedSelectorEnabled    bool     `yaml:"segmentedSelectorEnabled"`
 	SegmentedMinCandidates      int      `yaml:"segmentedSelectorMinCandidates"`
@@ -931,6 +935,8 @@ func defaultConfig() Config {
 			MaxAttempts:                 999,
 			VideoMaxAttempts:            999,
 			MarkBuildChatDeniedAsReauth: false,
+			SafetyRejectionMessage:      "",
+			SafetyRejectionReplace:      false,
 			PreferFreeBuild:             false,
 			AccountIsolatedConnections:  false,
 			SegmentedSelectorEnabled:    true,

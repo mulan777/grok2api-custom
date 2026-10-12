@@ -105,6 +105,11 @@ type RoutingConfig struct {
 	PreferFreeBuild                     bool
 	MarkBuildChatDeniedAsReauth         bool
 	MarkBuildChatDeniedAsReauthProvided bool
+	// 二开：内容审查拒答透传文案与模式（Provided 兼容旧客户端省略字段）
+	SafetyRejectionMessage         string
+	SafetyRejectionMessageProvided bool
+	SafetyRejectionReplace         bool
+	SafetyRejectionReplaceProvided bool
 	AccountIsolatedConnections          bool
 	// AccountIsolatedConnectionsProvided preserves the current value when an
 	// older management client omits the newly added field.
@@ -396,10 +401,19 @@ func applyDomainConfig(base config.Config, value settingsdomain.Config) config.C
 		segmentedMinCandidates = value.Routing.SegmentedSelector.MinCandidates
 		segmentedWindowSize = value.Routing.SegmentedSelector.WindowSize
 	}
+	// 二开：持久化设置里带了拒答透传策略时覆盖 yaml 基线。
+	// message 为空表示未配置；replace 为纯 bool，旧版 JSON 无此字段时为 false。
+	safetyRejectionMessage := base.Routing.SafetyRejectionMessage
+	if value.Routing.SafetyRejectionOverrideMessage != "" {
+		safetyRejectionMessage = value.Routing.SafetyRejectionOverrideMessage
+	}
+	safetyRejectionReplace := value.Routing.ReplaceSafetyRejectionMessage
 	base.Routing = config.RoutingConfig{
 		StickyTTL: config.Duration(value.Routing.StickyTTL), CooldownBase: config.Duration(value.Routing.CooldownBase),
 		CooldownMax: config.Duration(value.Routing.CooldownMax), CapacityWait: config.Duration(capacityWait), MaxAttempts: value.Routing.MaxAttempts, VideoMaxAttempts: value.Routing.VideoMaxAttempts,
 		MarkBuildChatDeniedAsReauth: value.Routing.MarkBuildChatDeniedAsReauth,
+		SafetyRejectionMessage:      safetyRejectionMessage,
+		SafetyRejectionReplace:      safetyRejectionReplace,
 		PreferFreeBuild:             value.Routing.PreferFreeBuild,
 		AccountIsolatedConnections:  accountIsolatedConnections,
 		SegmentedSelectorEnabled:    segmentedEnabled,
@@ -487,6 +501,8 @@ func toDomainConfig(value config.Config) settingsdomain.Config {
 			StickyTTL: value.Routing.StickyTTL.Value(), CooldownBase: value.Routing.CooldownBase.Value(),
 			CooldownMax: value.Routing.CooldownMax.Value(), CapacityWait: value.Routing.CapacityWait.Value(), MaxAttempts: value.Routing.MaxAttempts, VideoMaxAttempts: value.Routing.VideoMaxAttempts,
 			MarkBuildChatDeniedAsReauth: value.Routing.MarkBuildChatDeniedAsReauth,
+			SafetyRejectionOverrideMessage: value.Routing.SafetyRejectionMessage,
+			ReplaceSafetyRejectionMessage: value.Routing.SafetyRejectionReplace,
 			PreferFreeBuild:             value.Routing.PreferFreeBuild,
 			AccountIsolatedConnections:  &accountIsolatedConnections,
 			SegmentedSelector: &settingsdomain.SegmentedSelectorConfig{
@@ -588,6 +604,12 @@ func mergeEditable(current config.Config, input EditableConfig) (config.Config, 
 	}
 	if input.Routing.MarkBuildChatDeniedAsReauthProvided {
 		next.Routing.MarkBuildChatDeniedAsReauth = input.Routing.MarkBuildChatDeniedAsReauth
+	}
+	if input.Routing.SafetyRejectionMessageProvided {
+		next.Routing.SafetyRejectionMessage = input.Routing.SafetyRejectionMessage
+	}
+	if input.Routing.SafetyRejectionReplaceProvided {
+		next.Routing.SafetyRejectionReplace = input.Routing.SafetyRejectionReplace
 	}
 	next.Audit.BufferSize = input.Audit.BufferSize
 	next.Audit.BatchSize = input.Audit.BatchSize
@@ -725,6 +747,10 @@ func toEditable(cfg config.Config) EditableConfig {
 			CooldownMax: cfg.Routing.CooldownMax.String(), CapacityWait: cfg.Routing.CapacityWait.String(), MaxAttempts: cfg.Routing.MaxAttempts, VideoMaxAttempts: cfg.Routing.VideoMaxAttempts,
 			MarkBuildChatDeniedAsReauth:         cfg.Routing.MarkBuildChatDeniedAsReauth,
 			MarkBuildChatDeniedAsReauthProvided: true,
+			SafetyRejectionMessage:              cfg.Routing.SafetyRejectionMessage,
+			SafetyRejectionMessageProvided:      true,
+			SafetyRejectionReplace:              cfg.Routing.SafetyRejectionReplace,
+			SafetyRejectionReplaceProvided:      true,
 			PreferFreeBuild:                     cfg.Routing.PreferFreeBuild,
 			AccountIsolatedConnections:          cfg.Routing.AccountIsolatedConnections,
 			AccountIsolatedConnectionsProvided:  true,

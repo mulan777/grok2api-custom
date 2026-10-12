@@ -259,13 +259,18 @@ func isPermanentAccountDenial(text string) bool {
 
 // isSafetyRejection identifies request-level content safety denials that must
 // be returned to the client without account rotation or invalidation.
+// 二开：Grok Build 对内容审查拒绝返回的裸文案（"I'm sorry, I can't help with
+// that request."）不带 SAFETY_CHECK_TYPE_* 标记，必须一并识别，否则会落入
+// bare permission-denied 的换号遍历路径，1 次拒答放大成 N 个账号的无效重试。
 func isSafetyRejection(text string) bool {
 	if text == "" {
 		return false
 	}
 	lower := strings.ToLower(text)
 	return strings.Contains(lower, "content violates usage guidelines") ||
-		strings.Contains(lower, "safety_check_type_")
+		strings.Contains(lower, "safety_check_type_") ||
+		strings.Contains(lower, "i'm sorry, i can't help with that request") ||
+		strings.Contains(lower, "i am sorry, i can't help with that request")
 }
 
 // isRequestScopedForbidden recognizes only high-confidence request-level

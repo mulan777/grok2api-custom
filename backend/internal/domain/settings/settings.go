@@ -119,6 +119,12 @@ type RoutingConfig struct {
 	PreferFreeBuild  bool
 	// MarkBuildChatDeniedAsReauth 为 true 时，Build chat 权限拒绝标 reauthRequired，默认 false 保留模型级冷却。
 	MarkBuildChatDeniedAsReauth bool
+	// SafetyRejectionOverrideMessage 二开：内容审查拒答透传给客户端时的提示文案。
+	// 为空表示沿用内置默认文案。仅当 ReplaceSafetyRejectionMessage=true 时整体覆盖，
+	// 否则在该文案后追加真实上游报错。
+	SafetyRejectionOverrideMessage string
+	// ReplaceSafetyRejectionMessage 二开：true=仅返回自定义文案；false=自定义文案+真实上游报错。
+	ReplaceSafetyRejectionMessage bool
 	// AccountIsolatedConnections is optional so persisted payloads written by
 	// older releases do not silently override a value supplied by config.yaml.
 	AccountIsolatedConnections *bool

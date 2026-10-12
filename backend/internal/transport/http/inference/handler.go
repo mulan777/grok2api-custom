@@ -332,7 +332,7 @@ func (h *Handler) createChatCompletion(c *gin.Context) {
 		Headers:                   c.Request.Header.Clone(),
 	})
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	h.writeResult(c, result, request.Stream, streamProtocolChat)
@@ -444,7 +444,7 @@ func (h *Handler) generateImage(c *gin.Context) {
 		Method: c.Request.Method, Path: c.Request.URL.Path, Headers: c.Request.Header.Clone(),
 	})
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	h.writeResult(c, result, request.Stream, streamProtocolImage)
@@ -456,8 +456,8 @@ func (h *Handler) writeMediaResult(c *gin.Context, result *gateway.Result) {
 	defer func() { result.Finalize(gateway.Usage{}, "", errorCode) }()
 	if isUpstreamCredentialStatus(result.StatusCode) {
 		errorCode = "upstream_unavailable"
-		clientCode := readCredentialErrorCode(result.StatusCode, result.Body)
-		writeOpenAIError(c, http.StatusServiceUnavailable, clientCode, credentialErrorMessage(clientCode))
+		clientCode, upstreamText := readCredentialError(result.StatusCode, result.Body)
+		writeOpenAIError(c, http.StatusServiceUnavailable, clientCode, h.safetyRejectionMessage(clientCode, upstreamText))
 		return
 	}
 	if result.StatusCode < http.StatusOK || (result.StatusCode >= http.StatusMultipleChoices && result.StatusCode < http.StatusBadRequest) {
@@ -683,7 +683,7 @@ func (h *Handler) editImage(c *gin.Context) {
 		Method: c.Request.Method, Path: c.Request.URL.Path, Headers: c.Request.Header.Clone(),
 	})
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	h.writeResult(c, result, request.Stream, streamProtocolImage)
@@ -913,7 +913,7 @@ func (h *Handler) handleVideoCreate(c *gin.Context, operation, label string) {
 		ImageURL: imageURL, ReferenceURLs: referenceURLs, ReferenceAudios: referenceAudios, VideoURL: videoURL,
 	})
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"request_id": job.ID})
@@ -926,7 +926,7 @@ func (h *Handler) getVideo(c *gin.Context) {
 	}
 	job, err := h.gateway.GetVideo(c.Request.Context(), strings.TrimSpace(c.Param("requestId")), clientKey)
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	c.JSON(http.StatusOK, videoGenerationResponse(job, h.videoPlaybackURL(job)))
@@ -966,7 +966,7 @@ func (h *Handler) getVideoContent(c *gin.Context) {
 	}
 	body, contentType, size, err := h.gateway.OpenVideoContent(c.Request.Context(), strings.TrimSpace(c.Param("requestId")), clientKey)
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	defer func() { _ = body.Close() }()
@@ -1171,7 +1171,7 @@ func (h *Handler) handleCreate(c *gin.Context, compact bool) {
 		result, err = h.gateway.CreateResponse(c.Request.Context(), input)
 	}
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	h.writeResponsesResult(c, result, request.Stream && !compact, request.Model)
@@ -1227,7 +1227,7 @@ func (h *Handler) handleOwnedResource(c *gin.Context, deleteResource bool) {
 		result, err = h.gateway.GetResponse(c.Request.Context(), input)
 	}
 	if err != nil {
-		writeGatewayError(c, err)
+		writeGatewayErrorFor(c, h, err)
 		return
 	}
 	h.writeResult(c, result, false, streamProtocolResponses)
@@ -1253,11 +1253,12 @@ func (h *Handler) writeProtocolResult(c *gin.Context, result *gateway.Result, st
 	defer func() { result.Finalize(usage, responseID, errorCode) }()
 	if isUpstreamCredentialStatus(result.StatusCode) {
 		errorCode = "upstream_unavailable"
-		clientCode := readCredentialErrorCode(result.StatusCode, result.Body)
+		clientCode, upstreamText := readCredentialError(result.StatusCode, result.Body)
+		message := h.safetyRejectionMessage(clientCode, upstreamText)
 		if anthropic {
-			writeAnthropicError(c, http.StatusServiceUnavailable, "overloaded_error", credentialErrorMessage(clientCode), clientCode)
+			writeAnthropicError(c, http.StatusServiceUnavailable, "overloaded_error", message, clientCode)
 		} else {
-			writeOpenAIError(c, http.StatusServiceUnavailable, clientCode, credentialErrorMessage(clientCode))
+			writeOpenAIError(c, http.StatusServiceUnavailable, clientCode, message)
 		}
 		return
 	}
@@ -2292,6 +2293,11 @@ func writeImageGenerationUserError(c *gin.Context, code, param, message string) 
 }
 
 func writeGatewayError(c *gin.Context, err error) {
+	writeGatewayErrorFor(c, nil, err)
+}
+
+// writeGatewayErrorFor 二开：带 Handler 上下文，内容审查拒答时读管理面板策略渲染文案。
+func writeGatewayErrorFor(c *gin.Context, h *Handler, err error) {
 	status, code := http.StatusBadGateway, "upstream_unavailable"
 	message := "上游服务暂不可用"
 	var upstreamFailure *gateway.UpstreamFailure
@@ -2328,7 +2334,19 @@ func writeGatewayError(c *gin.Context, err error) {
 			if upstreamFailure.QuotaExhausted || upstreamFailure.FreeQuotaExhausted || upstreamFailure.HTTPStatus == http.StatusPaymentRequired {
 				code = "upstream_unavailable"
 			}
-			status, message = http.StatusServiceUnavailable, credentialErrorMessage(code)
+			status = http.StatusServiceUnavailable
+			// 二开：内容审查拒答（SafetyRejection）走可配置文案；其余保持脱敏。
+			// 该分支没有上游原始正文，仅在面板配置了文案时生效（不支持追加模式）。
+			if upstreamFailure.SafetyRejection && code == "permission-denied" {
+				message = "你的请求被上游内容审查拒绝，请修改提示词后重试"
+				if h != nil {
+					if policyMessage, _ := h.gateway.SafetyRejectionPolicy(); strings.TrimSpace(policyMessage) != "" {
+						message = strings.TrimSpace(policyMessage)
+					}
+				}
+			} else {
+				message = credentialErrorMessage(code)
+			}
 		} else {
 			status, code, message = upstreamFailure.HTTPStatus, upstreamFailure.Code, upstreamFailure.PublicMessage
 		}
@@ -2453,6 +2471,36 @@ func readCredentialErrorCode(status int, source io.Reader) string {
 		return "upstream_unavailable"
 	}
 	return gateway.ClientCredentialErrorCodeFromBody(status, body)
+}
+
+// readCredentialError 二开：读取凭据类错误码并保留上游原始错误文本，
+// 供内容审查拒答透传时向客户端展示真实报错。
+func readCredentialError(status int, source io.Reader) (string, string) {
+	body, err := io.ReadAll(io.LimitReader(source, maxCredentialErrorInspectBytes+1))
+	if err != nil || len(body) > maxCredentialErrorInspectBytes {
+		return "upstream_unavailable", ""
+	}
+	code := gateway.ClientCredentialErrorCodeFromBody(status, body)
+	_, _, upstreamMessage := provider.ExtractUpstreamErrorMetadata(body)
+	return code, upstreamMessage
+}
+
+// safetyRejectionMessage 二开：按管理面板配置渲染内容审查拒答的客户端文案。
+// clientCode != permission-denied 时维持原脱敏文案不变。
+// 模式一（Replace=true）：仅返回自定义文案；模式二：自定义文案 + 真实上游报错。
+func (h *Handler) safetyRejectionMessage(clientCode, upstreamText string) string {
+	if clientCode != "permission-denied" {
+		return credentialErrorMessage(clientCode)
+	}
+	policyMessage, replace := h.gateway.SafetyRejectionPolicy()
+	message := strings.TrimSpace(policyMessage)
+	if message == "" {
+		message = "你的请求被上游内容审查拒绝，请修改提示词后重试"
+	}
+	if !replace && strings.TrimSpace(upstreamText) != "" {
+		return message + "（上游返回：" + upstreamText + "）"
+	}
+	return message
 }
 
 func credentialErrorMessage(code string) string {

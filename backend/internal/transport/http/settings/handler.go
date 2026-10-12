@@ -106,6 +106,9 @@ type routingConfigDTO struct {
 	VideoMaxAttempts            int                         `json:"videoMaxAttempts"`
 	PreferFreeBuild             bool                        `json:"preferFreeBuild"`
 	MarkBuildChatDeniedAsReauth *bool                       `json:"markBuildChatDeniedAsReauth,omitempty"`
+	// 二开：内容审查拒答透传文案与模式
+	SafetyRejectionMessage      *string                     `json:"safetyRejectionMessage,omitempty"`
+	SafetyRejectionReplace      *bool                       `json:"safetyRejectionReplace,omitempty"`
 	AccountIsolatedConnections  *bool                       `json:"accountIsolatedConnections,omitempty"`
 	SegmentedSelector           *segmentedSelectorConfigDTO `json:"segmentedSelector,omitempty"`
 }
@@ -232,6 +235,10 @@ func (value settingsConfigDTO) toApplication() settingsapp.EditableConfig {
 			PreferFreeBuild:                     value.Routing.PreferFreeBuild,
 			MarkBuildChatDeniedAsReauth:         boolValue(value.Routing.MarkBuildChatDeniedAsReauth),
 			MarkBuildChatDeniedAsReauthProvided: value.Routing.MarkBuildChatDeniedAsReauth != nil,
+			SafetyRejectionMessage:              stringPointerValue(value.Routing.SafetyRejectionMessage),
+			SafetyRejectionMessageProvided:      value.Routing.SafetyRejectionMessage != nil,
+			SafetyRejectionReplace:              boolValue(value.Routing.SafetyRejectionReplace),
+			SafetyRejectionReplaceProvided:      value.Routing.SafetyRejectionReplace != nil,
 			AccountIsolatedConnections:          boolValue(value.Routing.AccountIsolatedConnections),
 			AccountIsolatedConnectionsProvided:  value.Routing.AccountIsolatedConnections != nil,
 		},
@@ -314,6 +321,8 @@ func newSettingsResponse(value settingsapp.Snapshot) settingsResponse {
 				StickyTTL: config.Routing.StickyTTL, CooldownBase: config.Routing.CooldownBase,
 				CooldownMax: config.Routing.CooldownMax, CapacityWait: config.Routing.CapacityWait, MaxAttempts: config.Routing.MaxAttempts, VideoMaxAttempts: config.Routing.VideoMaxAttempts,
 				MarkBuildChatDeniedAsReauth: boolPointer(config.Routing.MarkBuildChatDeniedAsReauth),
+				SafetyRejectionMessage:      stringPointer(config.Routing.SafetyRejectionMessage),
+				SafetyRejectionReplace:      boolPointer(config.Routing.SafetyRejectionReplace),
 				PreferFreeBuild:             config.Routing.PreferFreeBuild,
 				AccountIsolatedConnections:  boolPointer(config.Routing.AccountIsolatedConnections),
 				SegmentedSelector: &segmentedSelectorConfigDTO{
@@ -354,6 +363,14 @@ func optionalString(value *string) string {
 }
 
 func stringPointer(value string) *string { return &value }
+
+// stringPointerValue 二开：解引用可选字符串（nil 视为空串）。
+func stringPointerValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
 
 func boolPointer(value bool) *bool { return &value }
 
